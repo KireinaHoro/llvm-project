@@ -162,6 +162,12 @@ struct PragmaFPHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+struct PragmaHLSHandler : public PragmaHandler {
+  PragmaHLSHandler() : PragmaHandler("HLS") {}
+  void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
+                    Token &FirstToken) override;
+};
+
 struct PragmaNoOpenMPHandler : public PragmaHandler {
   PragmaNoOpenMPHandler() : PragmaHandler("omp") { }
   void HandlePragma(Preprocessor &PP, PragmaIntroducer Introducer,
@@ -423,6 +429,9 @@ void Parser::initializePragmaHandlers() {
 
   MaxTokensTotalPragmaHandler = std::make_unique<PragmaMaxTokensTotalHandler>();
   PP.AddPragmaHandler("clang", MaxTokensTotalPragmaHandler.get());
+
+  HLSPragmaHandler = std::make_unique<PragmaHLSHandler>();
+  PP.AddPragmaHandler(HLSPragmaHandler.get());
 }
 
 void Parser::resetPragmaHandlers() {
@@ -539,6 +548,9 @@ void Parser::resetPragmaHandlers() {
 
   PP.RemovePragmaHandler("clang", MaxTokensTotalPragmaHandler.get());
   MaxTokensTotalPragmaHandler.reset();
+
+  PP.RemovePragmaHandler(HLSPragmaHandler.get());
+  HLSPragmaHandler.reset();
 }
 
 /// Handle the annotation token produced for #pragma unused(...)
@@ -2981,6 +2993,11 @@ void PragmaFPHandler::HandlePragma(Preprocessor &PP,
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
                       /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
+}
+
+void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
+                                    PragmaIntroducer Introducer, Token &Tok) {
+  // TODO(jsteward): process the pragma
 }
 
 void PragmaSTDC_FENV_ROUNDHandler::HandlePragma(Preprocessor &PP,
