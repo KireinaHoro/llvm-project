@@ -444,7 +444,7 @@ static StringRef lookupOperationNameFromOpcode(unsigned opcode) {
       // FIXME: fcmp
       // PHI is handled specially.
       INST(Freeze, Freeze), INST(Call, Call),
-      // FIXME: select
+      INST(Select, Select),
       // FIXME: vaarg
       // FIXME: extractelement
       // FIXME: insertelement
@@ -596,6 +596,15 @@ LogicalResult Importer::processInstruction(llvm::Instruction *inst) {
     v = b.create<ICmpOp>(
         loc, getICmpPredicate(cast<llvm::ICmpInst>(inst)->getPredicate()), lhs,
         rhs);
+    return success();
+  }
+  case llvm::Instruction::Select: {
+    Value condition = processValue(inst->getOperand(0));
+    Value lhs = processValue(inst->getOperand(1));
+    Value rhs = processValue(inst->getOperand(2));
+    if (!condition || !lhs || !rhs)
+      return failure();
+    v = b.create<SelectOp>(loc, condition, lhs, rhs);
     return success();
   }
   case llvm::Instruction::Br: {
