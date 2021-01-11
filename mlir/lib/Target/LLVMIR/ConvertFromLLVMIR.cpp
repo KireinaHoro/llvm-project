@@ -387,6 +387,9 @@ Value Importer::processValue(llvm::Value *value) {
   // We don't expect to see instructions in dominator order. If we haven't seen
   // this instruction yet, create an unknown op and remap it later.
   if (isa<llvm::Instruction>(value)) {
+    auto it = unknownInstMap.find(value);
+    if (it != unknownInstMap.end())
+      return it->second->getResult(0);
     OperationState state(UnknownLoc::get(context), "llvm.unknown");
     LLVMType type = processType(value->getType());
     if (!type)
@@ -824,6 +827,7 @@ LogicalResult Importer::processFunction(llvm::Function *f) {
 
   // Now that all instructions are guaranteed to have been visited, ensure
   // any unknown uses we encountered are remapped.
+  
   for (auto &llvmAndUnknown : unknownInstMap) {
     assert(instMap.count(llvmAndUnknown.first));
     Value newValue = instMap[llvmAndUnknown.first];
@@ -831,6 +835,7 @@ LogicalResult Importer::processFunction(llvm::Function *f) {
     oldValue.replaceAllUsesWith(newValue);
     llvmAndUnknown.second->erase();
   }
+
   return success();
 }
 
