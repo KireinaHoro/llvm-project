@@ -38,6 +38,7 @@ namespace clang {
   class DeclGroupRef;
   class DiagnosticBuilder;
   struct LoopHint;
+  struct HLS;
   class Parser;
   class ParsingDeclRAIIObject;
   class ParsingDeclSpec;
@@ -765,6 +766,10 @@ private:
   /// Handle the annotation token produced for
   /// #pragma clang loop and #pragma unroll.
   bool HandlePragmaLoopHint(LoopHint &Hint);
+
+  /// Handle the annotation token produced for
+  /// #pragma HLS.
+  bool HandlePragmaHLS(HLS &Directive);
 
   bool ParsePragmaAttributeSubjectMatchRuleSet(
       attr::ParsedSubjectMatchRuleSet &SubjectMatchRules,
@@ -2106,6 +2111,10 @@ private:
                                  ParsedStmtContext StmtCtx,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
+  StmtResult ParsePragmaHLS(StmtVector &Stmts,
+                            ParsedStmtContext StmtCtx,
+                            SourceLocation *TrailingElseLoc,
+                            ParsedAttributesWithRange &Attrs);
 
   /// Describes the behavior that should be taken for an __if_exists
   /// block.

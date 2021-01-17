@@ -15,6 +15,7 @@
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Parse/LoopHint.h"
+#include "clang/Parse/HLS.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
@@ -412,6 +413,10 @@ Retry:
   case tok::annot_pragma_loop_hint:
     ProhibitAttributes(Attrs);
     return ParsePragmaLoopHint(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  case tok::annot_pragma_hls:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaHLS(Stmts, StmtCtx, TrailingElseLoc, Attrs);
 
   case tok::annot_pragma_dump:
     HandlePragmaDump();
@@ -2235,6 +2240,39 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
 
   // Start of attribute range may already be set for some invalid input.
   // See PR46336.
+  if (Attrs.Range.getBegin().isInvalid())
+    Attrs.Range.setBegin(StartLoc);
+
+  return S;
+}
+
+StmtResult Parser::ParsePragmaHLS(StmtVector &Stmts, ParsedStmtContext StmtCtx,
+                                  SourceLocation *TrailingElseLoc,
+                                  ParsedAttributesWithRange &Attrs) {
+  // Create temporary attribute list.
+  ParsedAttributesWithRange TempAttrs(AttrFactory);
+
+  SourceLocation StartLoc = Tok.getLocation();
+
+  // in the case of multiple tokens
+  while (Tok.is(tok::annot_pragma_hls)) {
+    HLS Directive;
+    if (!HandlePragmaHLS(Directive))
+      continue;
+
+    ArgsUnion ArgDirectives[] = {Directive.PragmaNameLoc, Directive.OptionLoc, Directive.StateLoc,
+    ArgsUnion(Directive.ValueExpr)};
+
+    TempAttrs.addNew(Directive.PragmaNameLoc->Ident, Directive.Range, nullptr,
+                     Directive.PragmaNameLoc->Loc, ArgDirectives, 4, ParsedAttr::AS_Pragma);
+  }
+
+  MaybeParseCXX11Attributes(Attrs);
+
+  StmtResult S = ParseStatementOrDeclarationAfterAttributes(Stmts, StmtCtx, TrailingElseLoc, Attrs);
+
+  Attrs.takeAllFrom(TempAttrs);
+
   if (Attrs.Range.getBegin().isInvalid())
     Attrs.Range.setBegin(StartLoc);
 

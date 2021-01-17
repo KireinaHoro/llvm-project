@@ -15,6 +15,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/LoopHint.h"
+#include "clang/Parse/HLS.h"
 #include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
@@ -1091,6 +1092,12 @@ struct PragmaLoopHintInfo {
   Token Option;
   ArrayRef<Token> Toks;
 };
+
+struct PragmaHLSInfo {
+  Token PragmaName;
+  Token Option;
+  ArrayRef<Token> Toks;
+};
 } // end anonymous namespace
 
 static std::string PragmaLoopHintString(Token PragmaName, Token Option) {
@@ -1229,6 +1236,20 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
   Hint.Range = SourceRange(Info->PragmaName.getLocation(),
                            Info->Toks.back().getLocation());
   return true;
+}
+
+bool Parser::HandlePragmaHLS(HLS &Directive) {
+  assert(Tok.is(tok::annot_pragma_hls));
+  PragmaHLSInfo *Info = static_cast<PragmaHLSInfo *>(Tok.getAnnotationValue());
+
+  llvm::ArrayRef<Token> Toks = Info->Toks;
+  assert(!Toks.empty() && "PragmaHLSInfo::Toks must contain at least one token.");
+
+  // TODO(jsteward): parse HLS annotation into HLS attributes
+
+  ConsumeAnnotationToken();
+
+  return false;
 }
 
 namespace {
@@ -2995,11 +3016,6 @@ void PragmaFPHandler::HandlePragma(Preprocessor &PP,
                       /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
 }
 
-void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
-                                    PragmaIntroducer Introducer, Token &Tok) {
-  // TODO(jsteward): process the pragma
-}
-
 void PragmaSTDC_FENV_ROUNDHandler::HandlePragma(Preprocessor &PP,
                                                 PragmaIntroducer Introducer,
                                                 Token &Tok) {
@@ -3113,6 +3129,14 @@ static bool ParseLoopHintValue(Preprocessor &PP, Token &Tok, Token PragmaName,
   Info.PragmaName = PragmaName;
   Info.Option = Option;
   return false;
+}
+
+/// Parses HLS pragma directive and fills in Info.
+static bool ParseHLSValue(Preprocessor &PP, Token &Tok, Token PragmaName,
+                          Token Option, PragmaHLSInfo &Info) {
+  // TODO(jsteward): Parse HLS pragma into PragmaHLSInfo
+
+  return true;
 }
 
 /// Handle the \#pragma clang loop directive.
@@ -3234,6 +3258,63 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
 
   PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
                       /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
+}
+
+/// Handle the \#pragma HLS directive.
+///  #pragma HLS hls-directives
+void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
+                                    PragmaIntroducer Introducer, Token &Tok) {
+  // Incoming token is "HLS" from #pragma HLS ...
+  Token PragmaName = Tok;
+  SmallVector<Token, 1> TokenList;
+
+  PP.Lex(Tok);
+  if (Tok.isNot(tok::identifier)) {
+    PP.Diag(Tok.getLocation(), diag::err_pragma_hls_invalid_option)
+        << /*MissingOption=*/true << "";
+    return;
+  }
+
+  while (Tok.is(tok::identifier)) {
+    Token Option = Tok;
+    IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
+
+    bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
+        .Case("unroll", true)
+        .Case("pipeline", true)
+        .Default(false);
+
+    if (!OptionValid) {
+      PP.Diag(Tok.getLocation(), diag::err_pragma_hls_invalid_option)
+          << /*MissingOption=*/false << OptionInfo;
+      return;
+    }
+    PP.Lex(Tok);
+
+    auto *Info = new (PP.getPreprocessorAllocator()) PragmaHLSInfo;
+    if (ParseHLSValue(PP, Tok, PragmaName, Option, *Info))
+      return;
+
+    Token HLSTok;
+    HLSTok.startToken();
+    HLSTok.setKind(tok::annot_pragma_hls);
+    HLSTok.setLocation(Introducer.Loc);
+    HLSTok.setAnnotationEndLoc(PragmaName.getLocation());
+    HLSTok.setAnnotationValue(static_cast<void *>(Info));
+    TokenList.push_back(HLSTok);
+  }
+
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+      << "HLS";
+    return;
+  }
+
+  auto TokenArray = std::make_unique<Token[]>(TokenList.size());
+  std::copy(TokenList.begin(), TokenList.end(), TokenArray.get());
+
+  PP.EnterTokenStream(std::move(TokenArray), TokenList.size(),
+  /*DisableMacroExpansion=*/false, /*IsReinject=*/false);
 }
 
 /// Handle the loop unroll optimization pragmas.

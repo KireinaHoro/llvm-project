@@ -1425,6 +1425,12 @@ def warn_pragma_force_cuda_host_device_bad_arg : Warning<
 def err_pragma_cannot_end_force_cuda_host_device : Error<
   "force_cuda_host_device end pragma without matching "
   "force_cuda_host_device begin">;
+
+// Pragma HLS support.
+def err_pragma_hls_invalid_option : Error<
+  "%select{invalid|missing}0 option%select{ %1|}0; expected unroll, or pipeline">;
+def warn_pragma_hls_not_implemented : Warning<
+  "directive %0 not implemented yet">;
 } // end of Parse Issue category.
 
 let CategoryName = "Modules Issue" in {
