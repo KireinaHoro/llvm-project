@@ -387,6 +387,9 @@ Value Importer::processValue(llvm::Value *value) {
   // We don't expect to see instructions in dominator order. If we haven't seen
   // this instruction yet, create an unknown op and remap it later.
   if (isa<llvm::Instruction>(value)) {
+    auto it = unknownInstMap.find(value);
+    if (it != unknownInstMap.end())
+      return it->second->getResult(0);
     OperationState state(UnknownLoc::get(context), "llvm.unknown");
     LLVMType type = processType(value->getType());
     if (!type)
@@ -444,7 +447,7 @@ static StringRef lookupOperationNameFromOpcode(unsigned opcode) {
       // FIXME: fcmp
       // PHI is handled specially.
       INST(Freeze, Freeze), INST(Call, Call),
-      // FIXME: select
+      INST(Select, Select),
       // FIXME: vaarg
       // FIXME: extractelement
       // FIXME: insertelement
@@ -596,6 +599,15 @@ LogicalResult Importer::processInstruction(llvm::Instruction *inst) {
     v = b.create<ICmpOp>(
         loc, getICmpPredicate(cast<llvm::ICmpInst>(inst)->getPredicate()), lhs,
         rhs);
+    return success();
+  }
+  case llvm::Instruction::Select: {
+    Value condition = processValue(inst->getOperand(0));
+    Value lhs = processValue(inst->getOperand(1));
+    Value rhs = processValue(inst->getOperand(2));
+    if (!condition || !lhs || !rhs)
+      return failure();
+    v = b.create<SelectOp>(loc, condition, lhs, rhs);
     return success();
   }
   case llvm::Instruction::Br: {
@@ -815,6 +827,7 @@ LogicalResult Importer::processFunction(llvm::Function *f) {
 
   // Now that all instructions are guaranteed to have been visited, ensure
   // any unknown uses we encountered are remapped.
+  
   for (auto &llvmAndUnknown : unknownInstMap) {
     assert(instMap.count(llvmAndUnknown.first));
     Value newValue = instMap[llvmAndUnknown.first];
@@ -822,6 +835,7 @@ LogicalResult Importer::processFunction(llvm::Function *f) {
     oldValue.replaceAllUsesWith(newValue);
     llvmAndUnknown.second->erase();
   }
+
   return success();
 }
 
