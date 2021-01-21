@@ -920,6 +920,9 @@ def err_pragma_loop_compatibility : Error<
 def err_pragma_loop_precedes_nonloop : Error<
   "expected a for, while, or do-while loop to follow '%0'">;
 
+def warn_pragma_hls_sema_not_implemented : Warning<
+  "semantic pass for HLS %0 directive not yet implemented">;
+
 def err_pragma_attribute_matcher_subrule_contradicts_rule : Error<
   "redundant attribute subject matcher sub-rule '%0'; '%1' already matches "
   "those declarations">;

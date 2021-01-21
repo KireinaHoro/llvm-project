@@ -171,6 +171,23 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return LoopHintAttr::CreateImplicit(S.Context, Option, State, ValueExpr, A);
 }
 
+static Attr *handleHLSAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                           SourceRange) {
+  IdentifierLoc *PragmaNameLoc = A.getArgAsIdent(0);
+  IdentifierLoc *OptionLoc = A.getArgAsIdent(1);
+  IdentifierLoc *StateLoc = A.getArgAsIdent(2);
+  Expr *NumericValue = A.getArgAsExpr(3);
+  auto *StringValueIdent = A.getArgAsIdent(4);
+  StringRef StringValue;
+
+  if (StringValueIdent)
+    StringValue = A.getArgAsIdent(4)->Ident->getName();
+
+  S.Diag(OptionLoc->Loc, diag::warn_pragma_hls_sema_not_implemented)
+      << OptionLoc->Ident->getName();
+  return nullptr;
+}
+
 namespace {
 class CallExprFinder : public ConstEvaluatedExprVisitor<CallExprFinder> {
   bool FoundCallExpr = false;
@@ -415,6 +432,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleFallThroughAttr(S, St, A, Range);
   case ParsedAttr::AT_LoopHint:
     return handleLoopHintAttr(S, St, A, Range);
+  case ParsedAttr::AT_HLS:
+    return handleHLSAttr(S, St, A, Range);
   case ParsedAttr::AT_OpenCLUnrollHint:
     return handleOpenCLUnrollHint(S, St, A, Range);
   case ParsedAttr::AT_Suppress:
