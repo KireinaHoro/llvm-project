@@ -2254,7 +2254,7 @@ StmtResult Parser::ParsePragmaHLS(StmtVector &Stmts, ParsedStmtContext StmtCtx,
 
   SourceLocation StartLoc = Tok.getLocation();
 
-  // in the case of multiple tokens
+  // each HLS directive argument will result in an annotation
   while (Tok.is(tok::annot_pragma_hls)) {
     HLS Directive;
     if (!HandlePragmaHLS(Directive))

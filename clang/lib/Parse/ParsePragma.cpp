@@ -1094,9 +1094,9 @@ struct PragmaLoopHintInfo {
 };
 
 struct PragmaHLSInfo {
-  Token PragmaName; // "HLS" in #pragma HLS unroll ...
-  Token Option; // "unroll" in #pragma HLS unroll ...
-  ArrayRef<Token> Toks; // remaining options
+  Token PragmaName;     // "HLS" in #pragma HLS unroll ...
+  Token Option;         // "unroll" in #pragma HLS unroll ...
+  ArrayRef<Token> Toks; // 1 (enable) or 2 (numeric or string) tokens, plus EOF
 };
 } // end anonymous namespace
 
@@ -1278,11 +1278,10 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
     return true;
   }
 
-  // TODO(jsteward): parse HLS annotation tokens into HLS attributes
   // PragmaName, Option, State, NumericValue, StringValue
 
   ConsumeAnnotationToken();
-  Diag(Info->Option.getLocation(), diag::warn_pragma_hls_not_implemented)
+  Diag(Info->Toks[0].getLocation(), diag::warn_pragma_hls_not_implemented)
       << OptionInfo->getName();
 
   return false;
@@ -3172,20 +3171,37 @@ static bool ParseLoopHintValue(Preprocessor &PP, Token &Tok, Token PragmaName,
 static bool ParseHLSValue(Preprocessor &PP, Token &Tok, Token PragmaName,
                           Token Option, PragmaHLSInfo &Info) {
   // syntax same as Vivado HLS: property | property=value
-  SmallVector<Token, 1> ValueList;
+  SmallVector<Token, 1> TokList;
 
-  while (Tok.isNot(tok::eod)) {
-    ValueList.push_back(Tok);
+  // identifier for directive option
+  assert(Tok.is(tok::identifier) &&
+         "the first token for HLS pragma value should be an identifier");
+
+  TokList.push_back(Tok);
+  PP.Lex(Tok);
+
+  if (Tok.is(tok::equal)) {
+    // this is a key-value option
     PP.Lex(Tok);
+
+    // FIXME(jsteward): we only handle single-token numeric/ident scenarios
+    if (Tok.is(tok::numeric_constant) || Tok.is(tok::identifier)) {
+      TokList.push_back(Tok);
+      PP.Lex(Tok);
+    } else {
+      PP.Diag(Tok.getLocation(), diag::err_expected_either)
+          << tok::numeric_constant << tok::identifier;
+      return true;
+    }
   }
 
   Token EOFTok;
   EOFTok.startToken();
   EOFTok.setKind(tok::eof);
   EOFTok.setLocation(Tok.getLocation());
-  ValueList.push_back(EOFTok); // Terminates expression for parsing.
+  TokList.push_back(EOFTok); // Terminates expression for parsing.
 
-  Info.Toks = llvm::makeArrayRef(ValueList).copy(PP.getPreprocessorAllocator());
+  Info.Toks = llvm::makeArrayRef(TokList).copy(PP.getPreprocessorAllocator());
   Info.PragmaName = PragmaName;
   Info.Option = Option;
 
@@ -3333,9 +3349,9 @@ void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
   IdentifierInfo *OptionInfo = Tok.getIdentifierInfo();
 
   bool OptionValid = llvm::StringSwitch<bool>(OptionInfo->getName())
-      .Case("unroll", true)
-      .Case("pipeline", true)
-      .Default(false);
+                         .Case("unroll", true)
+                         .Case("pipeline", true)
+                         .Default(false);
 
   if (!OptionValid) {
     PP.Diag(Tok.getLocation(), diag::err_pragma_hls_invalid_option)
@@ -3344,17 +3360,21 @@ void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
   }
   PP.Lex(Tok);
 
-  auto *Info = new (PP.getPreprocessorAllocator()) PragmaHLSInfo;
-  if (ParseHLSValue(PP, Tok, PragmaName, Option, *Info))
-    return;
+  // consume the whole pragma line, splitting each directive option into an
+  // attribute
+  while (Tok.is(tok::identifier)) {
+    auto *Info = new (PP.getPreprocessorAllocator()) PragmaHLSInfo;
+    if (ParseHLSValue(PP, Tok, PragmaName, Option, *Info))
+      return;
 
-  Token HLSTok;
-  HLSTok.startToken();
-  HLSTok.setKind(tok::annot_pragma_hls);
-  HLSTok.setLocation(Introducer.Loc);
-  HLSTok.setAnnotationEndLoc(PragmaName.getLocation());
-  HLSTok.setAnnotationValue(static_cast<void *>(Info));
-  TokenList.push_back(HLSTok);
+    Token HLSTok;
+    HLSTok.startToken();
+    HLSTok.setKind(tok::annot_pragma_hls);
+    HLSTok.setLocation(Introducer.Loc);
+    HLSTok.setAnnotationEndLoc(PragmaName.getLocation());
+    HLSTok.setAnnotationValue(static_cast<void *>(Info));
+    TokenList.push_back(HLSTok);
+  }
 
   if (Tok.isNot(tok::eod)) {
     PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
