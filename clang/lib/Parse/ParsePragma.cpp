@@ -1328,23 +1328,23 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
 
     Directive.NumericValue = R.get();
   } else if (IsString) {
-    goto unimplemented;
+    assert(Toks.size() == 2 && "only two tokens (string value and EOF) should "
+                               "be present in string valued arguments");
+    ConsumeAnnotationToken();
+    auto StringValue = Toks[0];
+
+    Directive.StringValue =
+        IdentifierLoc::create(Actions.Context, StringValue.getLocation(),
+                              StringValue.getIdentifierInfo());
   } else {
-    // Directive.StateLoc = IdentifierLoc::create(Actions.Context,
-    // ArgumentName.getLocation(),
-    goto unimplemented;
+    assert(Toks.size() == 1 &&
+           "only one token (EOF) should be present in enable arguments");
+    ConsumeAnnotationToken();
   }
 
   Directive.Range = SourceRange(Info->PragmaName.getLocation(),
                                 Info->Toks.back().getLocation());
   return true;
-
-unimplemented:
-  // FIXME(jsteward): eliminate this case
-  ConsumeAnnotationToken();
-  Diag(ArgumentName.getLocation(), diag::warn_pragma_hls_not_implemented)
-      << OptionInfo->getName();
-  return false;
 }
 
 namespace {
