@@ -1429,6 +1429,8 @@ def err_pragma_cannot_end_force_cuda_host_device : Error<
 // Pragma HLS support.
 def err_pragma_hls_invalid_option : Error<
   "%select{invalid|missing}0 option%select{ %1|}0; expected unroll, or pipeline">;
+def err_pragma_hls_missing_argument : Error<
+  "missing argument for HLS \"%0\" directive">;
 def warn_pragma_hls_not_implemented : Warning<
   "directive %0 not implemented yet">;
 } // end of Parse Issue category.
