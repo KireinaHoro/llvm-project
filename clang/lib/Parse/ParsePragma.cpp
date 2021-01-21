@@ -1284,6 +1284,63 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
   Directive.ArgumentNameLoc = IdentifierLoc::create(
       Actions.Context, ArgumentName.getLocation(), ArgumentNameInfo);
 
+  // determine type of the incoming argument
+  StringRef ArgumentNameStr = ArgumentNameInfo->getName();
+  auto IsEnable = llvm::StringSwitch<bool>(ArgumentNameStr)
+                      .Cases("region", "skip_exit_check", true) // unroll
+                      .Cases("enable_flush", "rewind", true)    // pipeline
+                      .Default(false);
+  auto IsNumeric = llvm::StringSwitch<bool>(ArgumentNameStr)
+                       .Case("factor", true) // unroll
+                       .Case("II", true)     // pipeline
+                       .Default(false);
+  auto IsString = llvm::StringSwitch<bool>(ArgumentNameStr).Default(false);
+
+  // none of the above matches: unknown argument
+  if (!IsEnable && !IsNumeric && !IsString) {
+    ConsumeAnnotationToken();
+    Diag(ArgumentName.getLocation(), diag::err_pragma_hls_invalid_argument)
+        << ArgumentNameStr << OptionInfo->getName();
+    return false;
+  }
+
+  if (IsNumeric) {
+    // Enter constant expression including EOF terminator into token stream.
+    PP.EnterTokenStream(Toks, /*DisableMacroExpansion=*/false,
+                        /*IsReinject=*/false);
+    ConsumeAnnotationToken();
+
+    ExprResult R = ParseConstantExpression();
+
+    // Tokens following an error in an ill-formed constant expression will
+    // remain in the token stream and must be removed.
+    if (Tok.isNot(tok::eof)) {
+      Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol) << "HLS";
+      while (Tok.isNot(tok::eof))
+        ConsumeAnyToken();
+    }
+    ConsumeToken(); // consume the constant expression eof terminator.
+
+    // reuse the LoopHint expr checker.
+    if (R.isInvalid() ||
+        Actions.CheckLoopHintExpr(R.get(), Toks[1].getLocation()))
+      return false;
+
+    Directive.NumericValue = R.get();
+  } else if (IsString) {
+    goto unimplemented;
+  } else {
+    // Directive.StateLoc = IdentifierLoc::create(Actions.Context,
+    // ArgumentName.getLocation(),
+    goto unimplemented;
+  }
+
+  Directive.Range = SourceRange(Info->PragmaName.getLocation(),
+                                Info->Toks.back().getLocation());
+  return true;
+
+unimplemented:
+  // FIXME(jsteward): eliminate this case
   ConsumeAnnotationToken();
   Diag(ArgumentName.getLocation(), diag::warn_pragma_hls_not_implemented)
       << OptionInfo->getName();
@@ -3187,14 +3244,17 @@ static bool ParseHLSValue(Preprocessor &PP, Token &Tok, Token PragmaName,
     // this is a key-value option
     PP.Lex(Tok);
 
-    // FIXME(jsteward): we only handle single-token numeric/ident scenarios
-    if (Tok.is(tok::numeric_constant) || Tok.is(tok::identifier)) {
+    if (Tok.is(tok::identifier)) {
+      // a string value.
       TokList.push_back(Tok);
       PP.Lex(Tok);
     } else {
-      PP.Diag(Tok.getLocation(), diag::err_expected_either)
-          << tok::numeric_constant << tok::identifier;
-      return true;
+      // FIXME(jsteward): this assumes that no identifiers are present in the
+      // constant expression
+      while (Tok.isNot(tok::identifier)) {
+        TokList.push_back(Tok);
+        PP.Lex(Tok);
+      }
     }
   }
 

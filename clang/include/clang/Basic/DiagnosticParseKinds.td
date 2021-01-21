@@ -1431,6 +1431,8 @@ def err_pragma_hls_invalid_option : Error<
   "%select{invalid|missing}0 option%select{ %1|}0; expected unroll, or pipeline">;
 def err_pragma_hls_missing_argument : Error<
   "missing argument for HLS \"%0\" directive">;
+def err_pragma_hls_invalid_argument : Error<
+  "invalid argument \"%0\" for HLS \"%1\" directive">;
 def warn_pragma_hls_not_implemented : Warning<
   "HLS directive %0 not implemented yet">;
 } // end of Parse Issue category.
