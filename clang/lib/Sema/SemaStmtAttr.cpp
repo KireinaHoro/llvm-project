@@ -175,7 +175,7 @@ static Attr *handleHLSAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                            SourceRange) {
   IdentifierLoc *PragmaNameLoc = A.getArgAsIdent(0);
   IdentifierLoc *OptionLoc = A.getArgAsIdent(1);
-  IdentifierLoc *StateLoc = A.getArgAsIdent(2);
+  IdentifierLoc *ArgumentNameLoc = A.getArgAsIdent(2);
   Expr *NumericValue = A.getArgAsExpr(3);
   auto *StringValueIdent = A.getArgAsIdent(4);
   StringRef StringValue;
@@ -183,7 +183,7 @@ static Attr *handleHLSAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   if (StringValueIdent)
     StringValue = A.getArgAsIdent(4)->Ident->getName();
 
-  S.Diag(OptionLoc->Loc, diag::warn_pragma_hls_sema_not_implemented)
+  S.Diag(ArgumentNameLoc->Loc, diag::warn_pragma_hls_sema_not_implemented)
       << OptionLoc->Ident->getName();
   return nullptr;
 }

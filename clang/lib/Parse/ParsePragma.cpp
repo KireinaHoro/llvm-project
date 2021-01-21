@@ -1094,9 +1094,11 @@ struct PragmaLoopHintInfo {
 };
 
 struct PragmaHLSInfo {
-  Token PragmaName;     // "HLS" in #pragma HLS unroll ...
-  Token Option;         // "unroll" in #pragma HLS unroll ...
-  ArrayRef<Token> Toks; // 1 (enable) or 2 (numeric or string) tokens, plus EOF
+  Token PragmaName;   // "HLS" in #pragma HLS unroll ...
+  Token Option;       // "unroll" in #pragma HLS unroll ...
+  Token ArgumentName; // "fixed" in #pragma HLS unroll fixed=4
+  ArrayRef<Token>
+      Toks; // 0 (enable), 1 (string) or multiple (numeric) tokens, plus EOF
 };
 } // end anonymous namespace
 
@@ -1255,7 +1257,6 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
       );
 
   llvm::ArrayRef<Token> Toks = Info->Toks;
-
   assert(!Toks.empty() && "PragmaHLSInfo::Toks must contain at least one token.");
 
   // Only for some HLS options, return a valid hint if pragma is specified
@@ -1263,14 +1264,12 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
   auto CanOmitArgument = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
                              .Cases("unroll", "pipeline", true)
                              .Default(false);
+  auto ArgumentName = Info->ArgumentName;
 
-  bool OptionUnroll = OptionInfo->isStr("unroll");
-  bool OptionPipeline = OptionInfo->isStr("pipeline");
-
-  if (Toks[0].is(tok::eof)) {
+  if (ArgumentName.is(tok::eof)) {
     ConsumeAnnotationToken();
     if (CanOmitArgument) {
-      Diag(Toks[0].getLocation(), diag::err_pragma_hls_missing_argument)
+      Diag(ArgumentName.getLocation(), diag::err_pragma_hls_missing_argument)
           << OptionInfo;
       return false;
     }
@@ -1278,12 +1277,16 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
     return true;
   }
 
-  // PragmaName, Option, State, NumericValue, StringValue
+  assert(ArgumentName.is(tok::identifier) &&
+         "ArgumentName must be an identifier");
+
+  IdentifierInfo *ArgumentNameInfo = ArgumentName.getIdentifierInfo();
+  Directive.ArgumentNameLoc = IdentifierLoc::create(
+      Actions.Context, ArgumentName.getLocation(), ArgumentNameInfo);
 
   ConsumeAnnotationToken();
-  Diag(Info->Toks[0].getLocation(), diag::warn_pragma_hls_not_implemented)
+  Diag(ArgumentName.getLocation(), diag::warn_pragma_hls_not_implemented)
       << OptionInfo->getName();
-
   return false;
 }
 
@@ -3177,7 +3180,7 @@ static bool ParseHLSValue(Preprocessor &PP, Token &Tok, Token PragmaName,
   assert(Tok.is(tok::identifier) &&
          "the first token for HLS pragma value should be an identifier");
 
-  TokList.push_back(Tok);
+  Info.ArgumentName = Tok;
   PP.Lex(Tok);
 
   if (Tok.is(tok::equal)) {

@@ -82,12 +82,14 @@ std::string HLSAttr::getValueString(const PrintingPolicy &Policy) const {
   std::string ValueName;
   llvm::raw_string_ostream OS(ValueName);
 
-  if (state == Numeric)
+  OS << stringValue;
+
+  if (state == Numeric) {
+    OS << "=";
     numericValue->printPretty(OS, nullptr, Policy);
-  else if (state == String)
-    OS << stringValue;
-  else if (state == Enable)
-    OS << "enable";
+  } else if (state == String) {
+    OS << "=" << stringValue;
+  } // print nothing for enable
 
   return OS.str();
 }

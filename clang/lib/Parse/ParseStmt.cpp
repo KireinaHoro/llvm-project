@@ -2260,10 +2260,10 @@ StmtResult Parser::ParsePragmaHLS(StmtVector &Stmts, ParsedStmtContext StmtCtx,
     if (!HandlePragmaHLS(Directive))
       continue;
 
-    // FIXME(jsteward): correctly build ArgsUnion for HLSAttr
     ArgsUnion ArgDirectives[] = {
-        Directive.PragmaNameLoc, Directive.OptionLoc,   Directive.StateLoc,
-        Directive.NumericValue,  Directive.StringValue,
+        Directive.PragmaNameLoc,   Directive.OptionLoc,
+        Directive.ArgumentNameLoc, Directive.NumericValue,
+        Directive.StringValue,
     };
     size_t ArgDirectivesLength = sizeof(ArgDirectives) / sizeof(ArgsUnion);
 

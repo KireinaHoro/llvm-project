@@ -27,14 +27,15 @@ struct HLS {
   // "unroll" in #pragma HLS unroll
   IdentifierLoc *OptionLoc;
 
-  // State of the HLS directive hint; could be enable, numeric, or string
-  IdentifierLoc *StateLoc;
+  // HLS directive argument name.
+  // "factor" in #pragma HLS unroll factor=4
+  IdentifierLoc *ArgumentNameLoc;
 
   Expr *NumericValue;
   IdentifierLoc *StringValue;
 
   HLS()
-      : PragmaNameLoc(nullptr), OptionLoc(nullptr), StateLoc(nullptr),
+      : PragmaNameLoc(nullptr), OptionLoc(nullptr), ArgumentNameLoc(nullptr),
         NumericValue(nullptr), StringValue(nullptr) {}
 };
 

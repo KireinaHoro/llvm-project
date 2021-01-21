@@ -3414,6 +3414,7 @@ def HLS : Attr {
         EnumArgument<"State", "HLSState",
             ["enable", "numeric", "string"],
             ["Enable", "Numeric", "String"]>,
+        StringArgument<"ArgumentName">,
         ExprArgument<"NumericValue">,
         StringArgument<"StringValue">];
 
