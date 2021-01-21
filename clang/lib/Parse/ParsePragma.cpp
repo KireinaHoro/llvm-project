@@ -1279,7 +1279,7 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
   }
 
   // TODO(jsteward): parse HLS annotation tokens into HLS attributes
-  // PragmaName, Option, State, ValueExpr (pending redesign)
+  // PragmaName, Option, State, NumericValue, StringValue
 
   ConsumeAnnotationToken();
   Diag(Info->Option.getLocation(), diag::warn_pragma_hls_not_implemented)

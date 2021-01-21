@@ -73,6 +73,30 @@ LoopHintAttr::getDiagnosticName(const PrintingPolicy &Policy) const {
   return getOptionName(option) + getValueString(Policy);
 }
 
+void HLSAttr::printPrettyPragma(raw_ostream &OS,
+                                const PrintingPolicy &Policy) const {
+  OS << ' ' << getOptionName(option) << getValueString(Policy);
+}
+
+std::string HLSAttr::getValueString(const PrintingPolicy &Policy) const {
+  std::string ValueName;
+  llvm::raw_string_ostream OS(ValueName);
+
+  if (state == Numeric)
+    numericValue->printPretty(OS, nullptr, Policy);
+  else if (state == String)
+    OS << stringValue;
+  else if (state == Enable)
+    OS << "enable";
+
+  return OS.str();
+}
+
+std::string HLSAttr::getDiagnosticName(const PrintingPolicy &Policy) const {
+  return std::string("#pragma HLS ") + getOptionName(option) +
+         getValueString(Policy);
+}
+
 void OMPDeclareSimdDeclAttr::printPrettyPragma(
     raw_ostream &OS, const PrintingPolicy &Policy) const {
   if (getBranchState() != BS_Undefined)

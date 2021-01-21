@@ -2260,11 +2260,16 @@ StmtResult Parser::ParsePragmaHLS(StmtVector &Stmts, ParsedStmtContext StmtCtx,
     if (!HandlePragmaHLS(Directive))
       continue;
 
-    ArgsUnion ArgDirectives[] = {Directive.PragmaNameLoc, Directive.OptionLoc, Directive.StateLoc,
-    ArgsUnion(Directive.ValueExpr)};
+    // FIXME(jsteward): correctly build ArgsUnion for HLSAttr
+    ArgsUnion ArgDirectives[] = {
+        Directive.PragmaNameLoc, Directive.OptionLoc,   Directive.StateLoc,
+        Directive.NumericValue,  Directive.StringValue,
+    };
+    size_t ArgDirectivesLength = sizeof(ArgDirectives) / sizeof(ArgsUnion);
 
     TempAttrs.addNew(Directive.PragmaNameLoc->Ident, Directive.Range, nullptr,
-                     Directive.PragmaNameLoc->Loc, ArgDirectives, 4, ParsedAttr::AS_Pragma);
+                     Directive.PragmaNameLoc->Loc, ArgDirectives,
+                     ArgDirectivesLength, ParsedAttr::AS_Pragma);
   }
 
   MaybeParseCXX11Attributes(Attrs);

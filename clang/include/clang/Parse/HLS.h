@@ -26,15 +26,16 @@ struct HLS {
   // Name of the HLS option.
   // "unroll" in #pragma HLS unroll
   IdentifierLoc *OptionLoc;
-  // Identifier for the hint state argument.  If null, then the state is
-  // default value such as for "#pragma unroll".
+
+  // State of the HLS directive hint; could be enable, numeric, or string
   IdentifierLoc *StateLoc;
-  // Expression for the hint argument if it exists, null otherwise.
-  Expr *ValueExpr;
+
+  Expr *NumericValue;
+  IdentifierLoc *StringValue;
 
   HLS()
       : PragmaNameLoc(nullptr), OptionLoc(nullptr), StateLoc(nullptr),
-        ValueExpr(nullptr) {}
+        NumericValue(nullptr), StringValue(nullptr) {}
 };
 
 } // end namespace clang

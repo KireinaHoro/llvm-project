@@ -3404,6 +3404,39 @@ def LoopHint : Attr {
   let Documentation = [LoopHintDocs, UnrollHintDocs];
 }
 
+def HLS : Attr {
+    let Spellings = [Pragma<"", "HLS">];
+
+    let Args = [
+        EnumArgument<"Option", "OptionType",
+            ["unroll", "pipeline"],
+            ["Unroll", "Pipeline"]>,
+        EnumArgument<"State", "HLSState",
+            ["enable", "numeric", "string"],
+            ["Enable", "Numeric", "String"]>,
+        ExprArgument<"NumericValue">,
+        StringArgument<"StringValue">];
+
+    let AdditionalMembers = [{
+    static const char *getOptionName(int Option) {
+      switch (Option) {
+      case Unroll: return "unroll";
+      case Pipeline: return "pipeline";
+      }
+      llvm_unreachable("Unhandled HLS option.");
+    }
+
+    void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const;
+
+    std::string getValueString(const PrintingPolicy &Policy) const;
+
+    std::string getDiagnosticName(const PrintingPolicy &Policy) const;
+    }];
+
+    // FIXME(jsteward): document the attribute
+    let Documentation = [Undocumented];
+}
+
 def CapturedRecord : InheritableAttr {
   // This attribute has no spellings as it is only ever created implicitly.
   let Spellings = [];
