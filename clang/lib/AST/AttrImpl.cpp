@@ -82,7 +82,7 @@ std::string HLSAttr::getValueString(const PrintingPolicy &Policy) const {
   std::string ValueName;
   llvm::raw_string_ostream OS(ValueName);
 
-  OS << stringValue;
+  OS << getArgumentName(argument);
 
   if (state == Numeric) {
     OS << "=";

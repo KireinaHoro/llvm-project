@@ -3414,7 +3414,9 @@ def HLS : Attr {
         EnumArgument<"State", "HLSState",
             ["enable", "numeric", "string"],
             ["Enable", "Numeric", "String"]>,
-        StringArgument<"ArgumentName">,
+        EnumArgument<"Argument", "ArgumentType",
+            ["region", "skip_exit_check", "enable_flush", "rewind", "factor", "II"],
+            ["Region", "SkipExitCheck", "EnableFlush", "Rewind", "Factor", "II"]>,
         ExprArgument<"NumericValue">,
         StringArgument<"StringValue">];
 
@@ -3425,6 +3427,17 @@ def HLS : Attr {
       case Pipeline: return "pipeline";
       }
       llvm_unreachable("Unhandled HLS option.");
+    }
+
+    static const char *getArgumentName(int Argument) {
+      switch (Argument) {
+      case Region: return "region";
+      case SkipExitCheck: return "skip_exit_check";
+      case EnableFlush: return "enable_flush";
+      case Rewind: return "rewind";
+      case II: return "II";
+      }
+      llvm_unreachable("Unhandled HLS argument.");
     }
 
     void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const;
