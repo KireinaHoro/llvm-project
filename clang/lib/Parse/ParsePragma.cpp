@@ -1256,19 +1256,16 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
       Actions.Context, Info->Option.getLocation(), OptionInfo
       );
 
-  llvm::ArrayRef<Token> Toks = Info->Toks;
-  assert(!Toks.empty() && "PragmaHLSInfo::Toks must contain at least one token.");
-
   // Only for some HLS options, return a valid hint if pragma is specified
   // without an argument
-  auto CanOmitArgument = llvm::StringSwitch<bool>(PragmaNameInfo->getName())
+  auto CanOmitArgument = llvm::StringSwitch<bool>(OptionInfo->getName())
                              .Cases("unroll", "pipeline", true)
                              .Default(false);
   auto ArgumentName = Info->ArgumentName;
 
   if (ArgumentName.is(tok::eof)) {
     ConsumeAnnotationToken();
-    if (CanOmitArgument) {
+    if (!CanOmitArgument) {
       Diag(ArgumentName.getLocation(), diag::err_pragma_hls_missing_argument)
           << OptionInfo;
       return false;
@@ -1277,6 +1274,9 @@ bool Parser::HandlePragmaHLS(HLS &Directive) {
     return true;
   }
 
+  llvm::ArrayRef<Token> Toks = Info->Toks;
+  assert(!Toks.empty() &&
+         "PragmaHLSInfo::Toks must contain at least one token.");
   assert(ArgumentName.is(tok::identifier) &&
          "ArgumentName must be an identifier");
 
@@ -3233,6 +3233,20 @@ static bool ParseHLSValue(Preprocessor &PP, Token &Tok, Token PragmaName,
   // syntax same as Vivado HLS: property | property=value
   SmallVector<Token, 1> TokList;
 
+  Info.PragmaName = PragmaName;
+  Info.Option = Option;
+
+  // EOF Token for ArgumentName placeholder or TokList termination
+  Token EOFTok;
+  EOFTok.startToken();
+  EOFTok.setKind(tok::eof);
+  EOFTok.setLocation(Tok.getLocation());
+
+  if (Tok.is(tok::eod)) {
+    Info.ArgumentName = EOFTok;
+    return false;
+  }
+
   // identifier for directive option
   assert(Tok.is(tok::identifier) &&
          "the first token for HLS pragma value should be an identifier");
@@ -3258,15 +3272,8 @@ static bool ParseHLSValue(Preprocessor &PP, Token &Tok, Token PragmaName,
     }
   }
 
-  Token EOFTok;
-  EOFTok.startToken();
-  EOFTok.setKind(tok::eof);
-  EOFTok.setLocation(Tok.getLocation());
   TokList.push_back(EOFTok); // Terminates expression for parsing.
-
   Info.Toks = llvm::makeArrayRef(TokList).copy(PP.getPreprocessorAllocator());
-  Info.PragmaName = PragmaName;
-  Info.Option = Option;
 
   return false;
 }
@@ -3423,9 +3430,7 @@ void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
   }
   PP.Lex(Tok);
 
-  // consume the whole pragma line, splitting each directive option into an
-  // attribute
-  while (Tok.is(tok::identifier)) {
+  auto MakeHLSTok = [&]() {
     auto *Info = new (PP.getPreprocessorAllocator()) PragmaHLSInfo;
     if (ParseHLSValue(PP, Tok, PragmaName, Option, *Info))
       return;
@@ -3437,11 +3442,21 @@ void PragmaHLSHandler::HandlePragma(Preprocessor &PP,
     HLSTok.setAnnotationEndLoc(PragmaName.getLocation());
     HLSTok.setAnnotationValue(static_cast<void *>(Info));
     TokenList.push_back(HLSTok);
+  };
+
+  // push a Token if no other tokens exist
+  if (Tok.is(tok::eod)) {
+    MakeHLSTok();
+  }
+
+  // consume the whole pragma line, splitting each directive option into an
+  // attribute
+  while (Tok.is(tok::identifier)) {
+    MakeHLSTok();
   }
 
   if (Tok.isNot(tok::eod)) {
-    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
-      << "HLS";
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol) << "HLS";
     return;
   }
 
