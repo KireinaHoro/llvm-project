@@ -183,9 +183,95 @@ static Attr *handleHLSAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   if (StringValueIdent)
     StringValue = A.getArgAsIdent(4)->Ident->getName();
 
-  S.Diag(ArgumentNameLoc->Loc, diag::warn_pragma_hls_sema_not_implemented)
-      << OptionLoc->Ident->getName();
-  return nullptr;
+  StringRef PragmaName = PragmaNameLoc->Ident->getName();
+  assert(PragmaName == "HLS" && "expected HLS pragma");
+
+  StringRef OptionName = OptionLoc->Ident->getName();
+  StringRef ArgumentName =
+      ArgumentNameLoc ? ArgumentNameLoc->Ident->getName() : "";
+
+  bool IsLoop = St->getStmtClass() == Stmt::DoStmtClass ||
+                St->getStmtClass() == Stmt::ForStmtClass ||
+                St->getStmtClass() == Stmt::CXXForRangeStmtClass ||
+                St->getStmtClass() == Stmt::WhileStmtClass;
+  // FIXME(jsteward): this is not an accurate function predicate
+  bool IsFunction = St->getStmtClass() == Stmt::CompoundStmtClass;
+
+  // check statement type by HLS option name
+  bool ValidStmt = false;
+  if (OptionName == "unroll") {
+    // must be preceeding loops
+    ValidStmt = IsLoop;
+  } else if (OptionName == "pipeline") {
+    // must be preceeding loops or functions
+    ValidStmt = IsLoop || IsFunction;
+  }
+
+  if (!ValidStmt) {
+    std::string Pragma = "#pragma HLS " + std::string(OptionName);
+    S.Diag(St->getBeginLoc(), diag::err_pragma_hls_directive_invalid_statement)
+        << OptionName << St->getStmtClassName();
+    return nullptr;
+  }
+
+  HLSAttr::OptionType Option =
+      llvm::StringSwitch<HLSAttr::OptionType>(OptionName)
+          .Case("unroll", HLSAttr::Unroll)
+          .Case("pipeline", HLSAttr::Pipeline);
+
+  HLSAttr::ArgumentType Argument =
+      llvm::StringSwitch<HLSAttr::ArgumentType>(ArgumentName)
+          .Case("region", HLSAttr::Region)
+          .Case("skip_exit_check", HLSAttr::SkipExitCheck)
+          .Case("enable_flush", HLSAttr::EnableFlush)
+          .Case("rewind", HLSAttr::Rewind)
+          .Case("factor", HLSAttr::Factor)
+          .Case("II", HLSAttr::II)
+          .Default(HLSAttr::Missing);
+
+  HLSAttr::HLSState State;
+
+  switch (Argument) {
+  case HLSAttr::Region: {
+    assert(Option == HLSAttr::Unroll && "Region is an Unroll argument");
+    State = HLSAttr::Enable;
+    break;
+  }
+  case HLSAttr::SkipExitCheck: {
+    assert(Option == HLSAttr::Unroll && "SkipExitCheck is an Unroll argument");
+    State = HLSAttr::Enable;
+    break;
+  }
+  case HLSAttr::Factor: {
+    assert(Option == HLSAttr::Unroll && "Factor is an Unroll argument");
+    State = HLSAttr::Numeric;
+    break;
+  }
+  case HLSAttr::EnableFlush: {
+    assert(Option == HLSAttr::Pipeline && "EnableFlush is a Pipeline argument");
+    State = HLSAttr::Enable;
+    break;
+  }
+  case HLSAttr::Rewind: {
+    assert(Option == HLSAttr::Pipeline && "Rewind is a Pipeline argument");
+    State = HLSAttr::Enable;
+    break;
+  }
+  case HLSAttr::II: {
+    assert(Option == HLSAttr::Pipeline && "II is a Pipeline argument");
+    State = HLSAttr::Numeric;
+    break;
+  }
+  case HLSAttr::Missing: {
+    assert((Option == HLSAttr::Unroll || Option == HLSAttr::Pipeline) &&
+           "invalid missing argument directive");
+    State = HLSAttr::Enable;
+    break;
+  }
+  }
+
+  return HLSAttr::CreateImplicit(S.Context, Option, State, Argument,
+                                 NumericValue, StringValue, A);
 }
 
 namespace {

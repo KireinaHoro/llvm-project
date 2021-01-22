@@ -3415,8 +3415,8 @@ def HLS : Attr {
             ["enable", "numeric", "string"],
             ["Enable", "Numeric", "String"]>,
         EnumArgument<"Argument", "ArgumentType",
-            ["region", "skip_exit_check", "enable_flush", "rewind", "factor", "II"],
-            ["Region", "SkipExitCheck", "EnableFlush", "Rewind", "Factor", "II"]>,
+            ["", "region", "skip_exit_check", "enable_flush", "rewind", "factor", "II"],
+            ["Missing", "Region", "SkipExitCheck", "EnableFlush", "Rewind", "Factor", "II"]>,
         ExprArgument<"NumericValue">,
         StringArgument<"StringValue">];
 
@@ -3435,7 +3435,9 @@ def HLS : Attr {
       case SkipExitCheck: return "skip_exit_check";
       case EnableFlush: return "enable_flush";
       case Rewind: return "rewind";
+      case Factor: return "factor";
       case II: return "II";
+      case Missing: return "";
       }
       llvm_unreachable("Unhandled HLS argument.");
     }

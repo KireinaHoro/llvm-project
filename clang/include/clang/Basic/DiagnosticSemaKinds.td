@@ -920,6 +920,8 @@ def err_pragma_loop_compatibility : Error<
 def err_pragma_loop_precedes_nonloop : Error<
   "expected a for, while, or do-while loop to follow '%0'">;
 
+def err_pragma_hls_directive_invalid_statement: Error<
+  "invalid HLS directive %0 preceeding %1 statement">;
 def warn_pragma_hls_sema_not_implemented : Warning<
   "semantic pass for HLS %0 directive not yet implemented">;
 
